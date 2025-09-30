@@ -8,7 +8,10 @@ if (is_logged_in()) {
     exit;
 }
 
-$accountService = new AccountService($conn);
+$accountService = null;
+if (!$conn->connect_error) {
+    $accountService = new AccountService($conn);
+}
 
 $email = trim($_POST['email'] ?? '');
 $password = $_POST['password'] ?? '';
@@ -25,29 +28,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = 'Email dan password wajib diisi.';
         $messageType = 'error';
     } else {
-        $stmt = $conn->prepare('SELECT id, name, email, password, phone, address FROM users WHERE email = ? LIMIT 1');
-        if ($stmt) {
-            $stmt->bind_param('s', $email);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($user = $result->fetch_assoc()) {
-                if (password_verify($password, $user['password'])) {
-                    login_user($user);
-                    $accountService->registerSession($user['id'], session_id(), current_session_token(), client_ip_address(), client_user_agent());
-                    $accountService->logActivity($user['id'], 'auth', 'Berhasil masuk ke akun', client_ip_address(), client_user_agent());
-                    $target = $redirect ? $redirect : 'profile.php';
-                    header('Location: ' . $target);
-                    exit;
+        // Check if database is available
+        if ($conn->connect_error) {
+            $message = 'Demo mode: Login tidak tersedia tanpa database. Silakan setup database terlebih dahulu.';
+            $messageType = 'error';
+        } else {
+            $stmt = $conn->prepare('SELECT id, name, email, password, phone, address FROM users WHERE email = ? LIMIT 1');
+            if ($stmt) {
+                $stmt->bind_param('s', $email);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($user = $result->fetch_assoc()) {
+                    if (password_verify($password, $user['password'])) {
+                        login_user($user);
+                        if ($accountService) {
+                            $accountService->registerSession($user['id'], session_id(), current_session_token(), client_ip_address(), client_user_agent());
+                            $accountService->logActivity($user['id'], 'auth', 'Berhasil masuk ke akun', client_ip_address(), client_user_agent());
+                        }
+                        $target = $redirect ? $redirect : 'profile.php';
+                        header('Location: ' . $target);
+                        exit;
+                    }
+                }
+                $stmt->close();
+            }
+
+            if ($user ?? null) {
+                if ($accountService) {
+                    $accountService->logActivity((int)$user['id'], 'auth', 'Gagal masuk: password salah', client_ip_address(), client_user_agent());
                 }
             }
-            $stmt->close();
-        }
 
-        if ($user ?? null) {
-            $accountService->logActivity((int)$user['id'], 'auth', 'Gagal masuk: password salah', client_ip_address(), client_user_agent());
+            $message = 'Email atau password salah.';
         }
-
-        $message = 'Email atau password salah.';
         $messageType = 'error';
     }
 

@@ -1,0 +1,25 @@
+# AhRawr Shop - Git Ignore File
+
+# Uploaded product images
+uploads/*
+!uploads/.gitkeep
+
+# Database configuration (if customized)
+# koneksi.php
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.log
+
+# Setup file (remove after setup)
+# setup.php

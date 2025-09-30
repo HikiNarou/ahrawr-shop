@@ -8,7 +8,10 @@ if (is_logged_in()) {
     exit;
 }
 
-$accountService = new AccountService($conn);
+$accountService = null;
+if (!$conn->connect_error) {
+    $accountService = new AccountService($conn);
+}
 
 function password_is_strong(string $password): bool
 {
@@ -50,47 +53,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = 'Password minimal 8 karakter dengan kombinasi huruf besar, huruf kecil, dan angka.';
         $messageType = 'error';
     } else {
-        $stmt = $conn->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
-        if ($stmt) {
-            $stmt->bind_param('s', $email);
-            $stmt->execute();
-            $stmt->store_result();
-            if ($stmt->num_rows > 0) {
-                $message = 'Email sudah terdaftar.';
-                $messageType = 'error';
-            }
-            $stmt->close();
-        }
-
-        if ($message === '') {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare('INSERT INTO users (name, email, password, phone, address) VALUES (?, ?, ?, ?, ?)');
+        // Check if database is available
+        if ($conn->connect_error) {
+            $message = 'Demo mode: Registrasi tidak tersedia tanpa database. Silakan setup database terlebih dahulu.';
+            $messageType = 'error';
+        } else {
+            $stmt = $conn->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
             if ($stmt) {
-                $stmt->bind_param('sssss', $name, $email, $hash, $phone, $address);
-                if ($stmt->execute()) {
-                    $userId = $stmt->insert_id;
-                    $user = [
-                        'id' => $userId,
-                        'name' => $name,
-                        'email' => $email,
-                        'phone' => $phone,
-                        'address' => $address,
-                    ];
-                    $stmt->close();
-
-                    login_user($user);
-                    $accountService->registerSession($userId, session_id(), current_session_token(), client_ip_address(), client_user_agent());
-                    $accountService->logActivity($userId, 'auth', 'Membuat akun baru', client_ip_address(), client_user_agent());
-                    header('Location: profile.php?status=welcome');
-                    exit;
+                $stmt->bind_param('s', $email);
+                $stmt->execute();
+                $stmt->store_result();
+                if ($stmt->num_rows > 0) {
+                    $message = 'Email sudah terdaftar.';
+                    $messageType = 'error';
                 }
-
-                $message = 'Terjadi kesalahan: ' . $stmt->error;
-                $messageType = 'error';
                 $stmt->close();
-            } else {
-                $message = 'Terjadi kesalahan: ' . $conn->error;
-                $messageType = 'error';
+            }
+
+            if ($message === '') {
+                $hash = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $conn->prepare('INSERT INTO users (name, email, password, phone, address) VALUES (?, ?, ?, ?, ?)');
+                if ($stmt) {
+                    $stmt->bind_param('sssss', $name, $email, $hash, $phone, $address);
+                    if ($stmt->execute()) {
+                        $userId = $stmt->insert_id;
+                        $user = [
+                            'id' => $userId,
+                            'name' => $name,
+                            'email' => $email,
+                            'phone' => $phone,
+                            'address' => $address,
+                        ];
+                        $stmt->close();
+
+                        login_user($user);
+                        if ($accountService) {
+                            $accountService->registerSession($userId, session_id(), current_session_token(), client_ip_address(), client_user_agent());
+                            $accountService->logActivity($userId, 'auth', 'Membuat akun baru', client_ip_address(), client_user_agent());
+                        }
+                        header('Location: profile.php?status=welcome');
+                        exit;
+                    }
+
+                    $message = 'Terjadi kesalahan: ' . $stmt->error;
+                    $messageType = 'error';
+                    $stmt->close();
+                } else {
+                    $message = 'Terjadi kesalahan: ' . $conn->error;
+                    $messageType = 'error';
+                }
             }
         }
     }
@@ -147,7 +158,7 @@ $cartCount = isset($_SESSION['cart']) ? array_sum($_SESSION['cart']) : 0;
         <div class="topbar">
             <span class="brand">AhRawr Shop</span>
             <nav>
-                <a href="view_product.php">Katalog</}</a>
+                <a href="view_product.php">Katalog</a>
                 <a href="cart.php">Keranjang<?= $cartCount ? ' (' . $cartCount . ')' : '' ?></a>
                 <a href="login.php">Masuk</a>
             </nav>

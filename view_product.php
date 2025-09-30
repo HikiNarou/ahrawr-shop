@@ -13,7 +13,47 @@ if ($result) {
         $products[] = $row;
     }
 } else {
-    $error = 'Tidak dapat memuat produk: ' . $conn->error;
+    // If database is not available, show demo products
+    if ($conn->connect_error || !$result) {
+        $products = [
+            [
+                'id' => 1,
+                'name' => 'Laptop Gaming',
+                'description' => 'Laptop gaming dengan spesifikasi tinggi untuk gaming dan produktivitas',
+                'price' => 15000000.00,
+                'image' => ''
+            ],
+            [
+                'id' => 2,
+                'name' => 'Smartphone Android',
+                'description' => 'Smartphone Android terbaru dengan kamera canggih dan performa optimal',
+                'price' => 8000000.00,
+                'image' => ''
+            ],
+            [
+                'id' => 3,
+                'name' => 'Headphone Wireless',
+                'description' => 'Headphone wireless dengan noise cancelling dan kualitas suara premium',
+                'price' => 2500000.00,
+                'image' => ''
+            ],
+            [
+                'id' => 4,
+                'name' => 'Keyboard Mechanical',
+                'description' => 'Keyboard mechanical dengan switch tactile untuk typing dan gaming',
+                'price' => 1200000.00,
+                'image' => ''
+            ],
+            [
+                'id' => 5,
+                'name' => 'Mouse Gaming',
+                'description' => 'Mouse gaming dengan sensor presisi tinggi dan design ergonomis',
+                'price' => 800000.00,
+                'image' => ''
+            ]
+        ];
+        $error = 'Demo mode: Database tidak tersedia. Menampilkan produk contoh.';
+    }
 }
 
 $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
